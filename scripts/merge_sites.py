@@ -9,7 +9,6 @@ from pathlib import Path
 BJ = timezone(timedelta(hours=8))
 SHARE = Path.home() / ".local/share/webcafe-emd"
 SITE_DIR = SHARE / "site"
-REPO_DATA = Path(__file__).resolve().parents[1] / "data"
 
 
 def today_bj() -> str:
@@ -113,18 +112,12 @@ def main() -> None:
         "new_today": sum(1 for r in out if r.get("first_seen") == today),
         "new_merged": new_count,
         "source": "web.cafe EMD radar",
+        "page_url": "https://lilike.github.io/webcafe-emd/",
     }
     text = json.dumps(out, ensure_ascii=False)
     meta_text = json.dumps(meta, ensure_ascii=False, indent=2)
     sites_path.write_text(text, encoding="utf-8")
     (SITE_DIR / "meta.json").write_text(meta_text, encoding="utf-8")
-
-    # sync into repo working copy when present
-    if REPO_DATA.exists() or True:
-        REPO_DATA.mkdir(parents=True, exist_ok=True)
-        (REPO_DATA / "sites.json").write_text(text, encoding="utf-8")
-        (REPO_DATA / "meta.json").write_text(meta_text, encoding="utf-8")
-
     print(json.dumps({"ok": True, **meta}, ensure_ascii=False))
 
 
