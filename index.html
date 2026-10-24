@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>web.cafe 新词 EMD 雷达</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2332;
+    --panel2: #243044;
+    --text: #e7ecf3;
+    --muted: #8b9bb4;
+    --accent: #5b9cff;
+    --good: #3ecf8e;
+    --warn: #f0b429;
+    --bad: #f07178;
+    --border: #2c3a4f;
+    --chip: #2a3850;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.45;
+  }
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(15,20,25,.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border); padding: 14px 18px 12px;
+  }
+  h1 { font-size: 1.15rem; margin: 0 0 4px; font-weight: 650; }
+  .sub { color: var(--muted); font-size: .85rem; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center;
+  }
+  input[type="search"], select {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; font-size: .9rem; min-width: 140px;
+  }
+  input[type="search"] { flex: 1; min-width: 180px; max-width: 360px; }
+  label.chk {
+    display: inline-flex; align-items: center; gap: 6px; color: var(--muted);
+    font-size: .88rem; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 10px; cursor: pointer; user-select: none;
+  }
+  label.chk input { accent-color: var(--accent); }
+  .stats { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  main { padding: 14px 18px 48px; max-width: 1100px; margin: 0 auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th {
+    position: sticky; top: 118px; background: var(--bg); color: var(--muted);
+    font-weight: 600; font-size: .78rem; text-transform: none; cursor: pointer;
+    white-space: nowrap; z-index: 10;
+  }
+  th:hover { color: var(--accent); }
+  th .arrow { opacity: .45; margin-left: 4px; }
+  tr:hover td { background: rgba(91,156,255,.06); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .kw { color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .84rem; }
+  .kw-more { color: var(--muted); font-size: .78rem; }
+  .chip {
+    display: inline-block; background: var(--chip); color: var(--muted);
+    border-radius: 999px; padding: 2px 8px; font-size: .75rem; margin-right: 4px;
+  }
+  .chip.new { background: #1e3d2f; color: var(--good); }
+  .chip.exact { background: #1e2f4a; color: #9ec1ff; }
+  .chip.fuzzy { background: #3a2f1e; color: #f0c674; }
+  .blurb { color: var(--muted); font-size: .82rem; max-width: 360px; }
+  .heat { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .empty { color: var(--muted); padding: 40px 8px; text-align: center; }
+  .verdict-worth { color: var(--good); }
+  .verdict-maybe { color: var(--warn); }
+  .verdict-skip { color: var(--muted); }
+  footer { color: var(--muted); font-size: .78rem; padding: 0 18px 28px; max-width: 1100px; margin: 0 auto; }
+  @media (max-width: 720px) {
+    .hide-sm { display: none; }
+    th { top: 150px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>web.cafe 新词 EMD 雷达</h1>
+  <div class="sub">按域名去重积累 · 默认按注册日排序 · 每站对应关键词</div>
+  <div class="controls">
+    <input id="q" type="search" placeholder="搜域名 / 关键词…" />
+    <select id="cat"><option value="">全部类型</option></select>
+    <select id="sort">
+      <option value="created_desc">注册日 ↓</option>
+      <option value="created_asc">注册日 ↑</option>
+      <option value="heat_desc">热度 ↓</option>
+      <option value="first_desc">首次发现 ↓</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="onlyNew" /> 仅今日新增</label>
+    <label class="chk"><input type="checkbox" id="recentReg" checked /> 近 21 天注册</label>
+    <span class="stats" id="stats">加载中…</span>
+  </div>
+</header>
+<main>
+  <table>
+    <thead>
+      <tr>
+        <th data-sort="created_bj">注册日<span class="arrow">↓</span></th>
+        <th>域名</th>
+        <th>关键词</th>
+        <th class="hide-sm">类型</th>
+        <th class="hide-sm">匹配</th>
+        <th>热度</th>
+        <th class="hide-sm">说明</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="empty" hidden>没有符合条件的站点</div>
+</main>
+<footer id="foot"></footer>
+<script>
+const CAT_ORDER = ['游戏站','AI 工具站','工具站','攻略维基','兑换码站','新闻追踪','官方站','其他','挂牌空壳'];
+let ALL = [];
+let META = {};
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function heatText(r) {
+  const h = r.heat_ratio;
+  if (h == null || h === '') return '—';
+  const g = r.growth_pct;
+  const gs = (g == null || g === '') ? '' : ` / ${g > 0 ? '+' : ''}${g}%`;
+  return `h${Number(h).toFixed(Number(h) >= 10 ? 1 : 2)}${gs}`;
+}
+function verdictClass(v) {
+  if (v === 'worth') return 'verdict-worth';
+  if (v === 'maybe') return 'verdict-maybe';
+  if (v === 'skip') return 'verdict-skip';
+  return '';
+}
+function apply() {
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const cat = document.getElementById('cat').value;
+  const onlyNew = document.getElementById('onlyNew').checked;
+  const recentReg = document.getElementById('recentReg').checked;
+  const sort = document.getElementById('sort').value;
+  const today = META.today;
+  const cutoff = (() => {
+    if (!recentReg || !today) return null;
+    const d = new Date(today + 'T00:00:00+08:00');
+    d.setDate(d.getDate() - 21);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  let rows = ALL.filter(r => {
+    if (onlyNew && r.first_seen !== today) return false;
+    if (cat && r.site_category !== cat) return false;
+    if (cutoff && (!r.created_bj || r.created_bj < cutoff)) return false;
+    if (q) {
+      const hay = `${r.domain} ${(r.keywords||[]).join(' ')} ${r.keyword||''} ${r.site_blurb||''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  rows.sort((a, b) => {
+    if (sort === 'created_asc') return (a.created_bj||'').localeCompare(b.created_bj||'') || (b.heat_ratio||0)-(a.heat_ratio||0);
+    if (sort === 'heat_desc') return (b.heat_ratio||0)-(a.heat_ratio||0) || (b.created_bj||'').localeCompare(a.created_bj||'');
+    if (sort === 'first_desc') return (b.first_seen||'').localeCompare(a.first_seen||'') || (b.created_bj||'').localeCompare(a.created_bj||'');
+    // created_desc default
+    return (b.created_bj||'').localeCompare(a.created_bj||'') || (b.heat_ratio||0)-(a.heat_ratio||0);
+  });
+
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = rows.map(r => {
+    const isNew = r.first_seen === today;
+    const kws = r.keywords || [];
+    const extra = kws.length > 1 ? `<div class="kw-more">+${kws.length-1}：${esc(kws.slice(1,4).join(' · '))}${kws.length>4?'…':''}</div>` : '';
+    const matchChip = r.match_type === '完全' ? '<span class="chip exact">完全</span>' : (r.match_type === '模糊' ? '<span class="chip fuzzy">模糊</span>' : '');
+    return `<tr>
+      <td>${esc(r.created_bj || '未知')}${isNew?' <span class="chip new">今日新</span>':''}</td>
+      <td><a href="${esc(r.url || ('https://'+r.domain+'/'))}" target="_blank" rel="noopener">${esc(r.domain)}</a></td>
+      <td><span class="kw">${esc(r.keyword || kws[0] || '—')}</span>${extra}</td>
+      <td class="hide-sm"><span class="chip">${esc(r.site_category || '其他')}</span></td>
+      <td class="hide-sm">${matchChip}</td>
+      <td class="heat ${verdictClass(r.verdict)}">${esc(heatText(r))}<div class="kw-more">${esc(r.verdict || '')}</div></td>
+      <td class="hide-sm blurb">${esc(r.site_blurb || '')}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('empty').hidden = rows.length > 0;
+  document.getElementById('stats').textContent =
+    `显示 ${rows.length} / 共 ${ALL.length} · 今日新增 ${META.new_today ?? 0} · 更新 ${META.generated_at || ''}`;
+}
+
+async function boot() {
+  const [sites, meta] = await Promise.all([
+    fetch('data/sites.json').then(r => r.json()),
+    fetch('data/meta.json').then(r => r.json()),
+  ]);
+  ALL = sites;
+  META = meta;
+  const cats = [...new Set(ALL.map(r => r.site_category).filter(Boolean))];
+  cats.sort((a,b) => {
+    const ia = CAT_ORDER.indexOf(a), ib = CAT_ORDER.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+  });
+  const sel = document.getElementById('cat');
+  for (const c of cats) {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c; sel.appendChild(o);
+  }
+  document.getElementById('foot').textContent =
+    `数据来自 web.cafe 新词批次 EMD 扫描 · 只读展示 · ${META.timezone || 'Asia/Shanghai'}`;
+  ['q','cat','sort','onlyNew','recentReg'].forEach(id => {
+    document.getElementById(id).addEventListener('input', apply);
+    document.getElementById(id).addEventListener('change', apply);
+  });
+  apply();
+}
+boot().catch(err => {
+  document.getElementById('stats').textContent = '加载失败：' + err;
+});
+</script>
+</body>
+</html>
